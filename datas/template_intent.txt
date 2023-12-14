@@ -1,0 +1,12 @@
+Your job is to select one intent from the <intent_list>.
+
+<intent_list>
+{intent_list}
+</intent_list>
+
+You must choose th intent that best matches the user's query.
+for example, if the user says "카카오톡 채널 기능에 대해 알려줘",
+the intent should be "카카오톡채널" that is the most relevant intent to the query.
+
+User: {query}
+Intent:

@@ -7,7 +7,8 @@ import os
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts.chat import ChatPromptTemplate
 from langchain.chains import LLMChain, SequentialChain
-from pprint import pprint
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import Chroma
 
 load_dotenv()
 os.environ["OPENAI_API_KEY"] = os.getenv("SECRET_KEY")
@@ -20,11 +21,37 @@ logging.basicConfig(
 
 
 def main():
+    PROJECT_DATA_SYNC = "datas/project_data_카카오싱크.txt"
+    PROJECT_DATA_CHANNEL = "datas/project_data_카카오톡채널.txt"
+    PROJECT_DATA_SOCIAL = "datas/project_data_카카오소셜.txt"
+
     STEP1_TEMPLATE_ABSTRACT = "datas/template_abstract.txt"
     STEP2_TEMPLATE_RESULT = "datas/template_result.txt"
 
-    def document():
-        f = open("datas/project_data_카카오싱크.txt", 'r', encoding='utf-8')
+    INTENT_PROMPT_TEMPLATE = "datas/template_intent.txt"
+    INTENT_LIST_TXT = "datas/intent_list.txt"
+
+    CHROMA_PERSIST_DIR = os.path.join("upload/chroma-persist")
+    CHROMA_COLLECTION_NAME = "dosu-bot"
+
+    # _db = Chroma(
+    #     persist_directory=CHROMA_PERSIST_DIR,
+    #     embedding_function=OpenAIEmbeddings(),
+    #     collection_name=CHROMA_COLLECTION_NAME,
+    # )
+    # _retriever = _db.as_retriever()
+    #
+    # def query_db(query: str, use_retriever: bool = False) -> list[str]:
+    #     if use_retriever:
+    #         docs = _retriever.get_relevant_documents(query)
+    #     else:
+    #         docs = _db.similarity_search(query)
+    #
+    #     str_docs = [doc.page_content for doc in docs]
+    #     return str_docs
+
+    def document(path):
+        f = open(path, 'r', encoding='utf-8')
         doc = []
         while True:
             line = f.readline()
@@ -50,10 +77,16 @@ def main():
         )
 
     def generate_response(query):
-        chatbot_llm = ChatOpenAI(temperature=0.1, max_tokens=1024, model="gpt-3.5-turbo-16k")
+        chatbot_llm = ChatOpenAI(temperature=0.1, max_tokens=512, model="gpt-3.5-turbo-16k")
 
         abstract_chain = create_chain(chatbot_llm, STEP1_TEMPLATE_ABSTRACT, "abstract")
         result_chain = create_chain(chatbot_llm, STEP2_TEMPLATE_RESULT, "result")
+        parse_intent_chain = create_chain(chatbot_llm, INTENT_PROMPT_TEMPLATE, "result")
+
+        context = dict(query=query)
+        context["intent_list"] = read_prompt_template(INTENT_LIST_TXT)
+
+        intent = parse_intent_chain(context)["result"]
 
         preprocess_chain = SequentialChain(
             chains=[
@@ -65,17 +98,19 @@ def main():
             verbose=True,
         )
 
-        context = dict(
-            guide=document(),
-            query=query
-        )
+        if intent == "카카오싱크":
+            context["guide"] = document(PROJECT_DATA_SYNC)
+        elif intent == "카카오톡채널":
+            context["guide"] = document(PROJECT_DATA_CHANNEL)
+        elif intent == "카카오소셜":
+            context["guide"] = document(PROJECT_DATA_SOCIAL)
+        # print(intent)
+        answer = preprocess_chain(context)
 
-        context = preprocess_chain(context)
+        print(answer["result"])
+        return answer["result"]
 
-        print(context["result"])
-        return context
-
-    generate_response("과정을 알려주라")
+    generate_response("카카오톡 채널 기능 소개를 해달라")
 
 
 if __name__ == "__main__":

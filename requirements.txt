@@ -7,3 +7,5 @@ openai==0.28
 
 pydantic~=2.5.2
 langchain~=0.0.349
+python-dotenv~=1.0.0
+pandas~=2.1.3
